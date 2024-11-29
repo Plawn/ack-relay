@@ -10,9 +10,16 @@ serde = {version = "1.0.215", features = ["derive"]}
 ntex = {version = "2.0", features = ["tokio"]}
 tokio-cron-scheduler = "0.13.0"
 anyhow = "1.0.93"
+serde_json = "1.0.133"
 
 [profile.release]
 # opt-level = "z"  # Optimize for size.
 lto = true
 codegen-units = 1
 strip = true  # Automatically strip symbols from the binary.
+
+
+[dependencies.reqwest]
+version = "0.12"
+default-features = false
+features = ["rustls-tls", "json"]
