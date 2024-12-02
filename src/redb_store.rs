@@ -60,7 +60,7 @@ impl Store for ReDBStore {
         }
     }
     fn validate_entries(&self, entries: Vec<u64>) {
-        let mut write_txn = self.db.begin_write().expect("failed to get write tx");
+        let write_txn = self.db.begin_write().expect("failed to get write tx");
         {
             let mut table = write_txn.open_table(TABLE).expect("failed to open table");
             for k in entries {
