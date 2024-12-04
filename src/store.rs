@@ -19,7 +19,7 @@ pub struct WebHookInner {
 
 impl WebHookInner  {
     pub fn get_body(&self) -> Option<serde_json::Value> {
-        return self.body.as_ref().map(|e| serde_json::from_str(e).ok()).flatten();
+        self.body.as_ref().and_then(|e| serde_json::from_str(e).ok())
     }
 }
 

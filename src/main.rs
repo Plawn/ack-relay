@@ -1,4 +1,3 @@
-use reqwest;
 use std::sync::Arc;
 
 use ack_relay::{ReDBStore, Store, WebHook, WebHookInner};
