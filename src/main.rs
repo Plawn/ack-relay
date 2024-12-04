@@ -1,7 +1,7 @@
+use reqwest;
 use std::sync::Arc;
 
-use ack_relay::{Method, ReDBStore, Store, WebHook, WebHookInner};
-use serde_json::Value;
+use ack_relay::{ReDBStore, Store, WebHook, WebHookInner};
 
 // #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 // struct SomeKey {
@@ -25,40 +25,22 @@ async fn get_keys(db: web::types::State<Arc<ReDBStore>>) -> impl web::Responder 
     Json(db.get_entries())
 }
 
-async fn handle_one_entry(key: u64, value: WebHookInner) -> Option<()> {
-    let client = reqwest::Client::new();
-    println!("hanlding {:?}", &value);
-    match value.method {
-        Method::GET => client
-            .get(value.url)
-            .send()
-            .await
-            .map(|e| e.error_for_status().ok())
-            .ok()
-            .flatten()
-            .map(|e| ()),
-        Method::POST | Method::PATCH | Method::PUT | Method::DELETE => {
-            let mut b = client.request(value.method.for_reqwest(), value.url);
-            match value.body {
-                Some(c) => {
-                    let parsed: Value = serde_json::from_str(&c).unwrap();
-                    b = b.json(&parsed)
-                }
-                None => {
-                    // nothing to do
-                }
-            }
-            b.send()
-                .await
-                .map(|e| e.error_for_status().ok())
-                .ok()
-                .flatten()
-                .map(|_e| ())
-        }
-    }
-}
 
-use tokio;
+
+async fn handle_one_entry(_key: u64, value: WebHookInner) -> Option<()> {
+    // Can we reuse the same client ?
+    let client = reqwest::Client::default();
+    let req = {
+        let m = value.method.for_req();
+        let b = client.request(m, &value.url);
+        match &value.get_body() {
+            Some(body) => b.json(&body),
+            None => b,
+        }
+    };
+    let resp = req.send().await;
+    resp.ok().filter(|e| e.status().as_u16() < 400).map(|_e| ())
+}
 
 #[ntex::main]
 async fn main() -> std::io::Result<()> {
@@ -66,7 +48,8 @@ async fn main() -> std::io::Result<()> {
     let db = Arc::from(ReDBStore::open(db_name).expect("failed to open to store"));
     // Add basic cron
     let cron_db = db.clone();
-    tokio::spawn(async move {
+
+    ntex::rt::spawn(async move {
         loop {
             let d2 = cron_db.clone();
             println!("I run every 10 seconds");
@@ -86,7 +69,7 @@ async fn main() -> std::io::Result<()> {
                 }
             }
             d2.validate_entries(results);
-            tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
+            ntex::time::sleep(ntex::time::Seconds(10)).await;
         }
     });
     web::HttpServer::new(move || {

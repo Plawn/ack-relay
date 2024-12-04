@@ -1,7 +1,6 @@
-
 use serde::{Deserialize, Serialize};
-use std::hash::{Hash, Hasher};
 use std::fmt::Debug;
+use std::hash::Hash;
 
 use crate::WebHook;
 
@@ -18,6 +17,13 @@ pub struct WebHookInner {
     pub method: Method,
 }
 
+impl WebHookInner  {
+    pub fn get_body(&self) -> Option<serde_json::Value> {
+        return self.body.as_ref().map(|e| serde_json::from_str(e).ok()).flatten();
+    }
+}
+
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Hash)]
 pub enum Method {
     GET,
@@ -27,14 +33,74 @@ pub enum Method {
     DELETE,
 }
 
+// impl From<Method> for ntex::http::Method {
+//     fn from(value: Method) -> Self {
+//         match value {
+//             Method::GET => ntex::http::Method::GET,
+//             Method::POST => ntex::http::Method::POST,
+//             Method::PATCH => ntex::http::Method::PATCH,
+//             Method::PUT => ntex::http::Method::PUT,
+//             Method::DELETE => ntex::http::Method::DELETE,
+//         }
+//     }
+// }
+
 impl Method {
-    pub fn for_reqwest(&self) -> reqwest::Method {
+    pub fn for_req(&self) -> reqwest::Method {
         match self {
             Method::GET => reqwest::Method::GET,
             Method::POST => reqwest::Method::POST,
             Method::PATCH => reqwest::Method::PATCH,
             Method::PUT => reqwest::Method::PUT,
             Method::DELETE => reqwest::Method::DELETE,
+        }
+    }
+}
+
+impl From<&Method> for reqwest::Method {
+    fn from(value: &Method) -> Self {
+        match value {
+            Method::GET => reqwest::Method::GET,
+            Method::POST => reqwest::Method::POST,
+            Method::PATCH => reqwest::Method::PATCH,
+            Method::PUT => reqwest::Method::PUT,
+            Method::DELETE => reqwest::Method::DELETE,
+        }
+    }
+}
+
+// impl From<Method> for reqwest::Method {
+//     fn from(value: Method) -> Self {
+//         match value {
+//             Method::GET => reqwest::Method::GET,
+//             Method::POST => reqwest::Method::POST,
+//             Method::PATCH => reqwest::Method::PATCH,
+//             Method::PUT => reqwest::Method::PUT,
+//             Method::DELETE => reqwest::Method::DELETE,
+//         }
+//     }
+// }
+
+impl From<Method> for &str {
+    fn from(value: Method) -> Self {
+        match value {
+            Method::GET => "GET",
+            Method::POST => "POST",
+            Method::PATCH => "PATCH",
+            Method::PUT => "PUT",
+            Method::DELETE => "DELETE",
+        }
+    }
+}
+
+impl From<&Method> for &str {
+    fn from(value: &Method) -> Self {
+        match value {
+            Method::GET => "GET",
+            Method::POST => "POST",
+            Method::PATCH => "PATCH",
+            Method::PUT => "PUT",
+            Method::DELETE => "DELETE",
         }
     }
 }

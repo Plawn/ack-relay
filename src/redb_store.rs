@@ -1,4 +1,4 @@
-use crate::{Bincode, Store, WebHook, WebHookInner};
+use crate::{Bincode, Method, Store, WebHook, WebHookInner};
 use std::hash::DefaultHasher;
 
 use redb::{Database, Error, ReadableTable, TableDefinition};
@@ -10,21 +10,13 @@ pub struct ReDBStore {
 
 const TABLE: TableDefinition<u64, Bincode<WebHookInner>> = TableDefinition::new("my_data");
 
-fn open_db(filename: &str) -> Result<Database, Error> {
-    if std::fs::exists(filename)? {
-        let d = Database::open(filename)?;
-        Ok(d)
-    } else {
-        let d = Database::create(filename)?;
-        Ok(d)
-    }
-}
-
 impl ReDBStore {
     pub fn open(filename: &str) -> Result<Self, Error> {
-        open_db(filename).map(|db| Self {
-            db
-        })
+        let db = match std::fs::exists(filename)? {
+            true => Database::open(filename)?,
+            false => Database::create(filename)?,
+        };
+        Ok(Self { db })
     }
 }
 
@@ -33,7 +25,10 @@ impl Store for ReDBStore {
         let write_txn = self.db.begin_write().unwrap();
         {
             let mut table = write_txn.open_table(TABLE).expect("failed to open table");
-            let v = value.to_inner();
+            let mut v = value.to_inner();
+            if v.method == Method::GET {
+                v.body = None;
+            }
             let mut hasher = DefaultHasher::new();
             v.hash(&mut hasher);
             let hash = hasher.finish();

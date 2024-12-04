@@ -1,7 +1,6 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::hash::Hasher;
 use std::fmt::Debug;
 
 use crate::{Method, WebHookInner};
@@ -16,6 +15,7 @@ pub struct WebHook {
 
 impl WebHook {
     pub fn to_inner(&self) -> WebHookInner {
+        // TODO: clean the clone ?
         WebHookInner {
             url: self.url.clone(),
             method: self.method.clone(),
