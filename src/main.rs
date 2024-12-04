@@ -51,7 +51,6 @@ async fn main() -> std::io::Result<()> {
     let cron_db = db.clone();
     let encoder = Arc::from(prometheus::TextEncoder::new());
     let prom_service = ack_relay::prom::prepare_prom();
-    let registry = Arc::from(prom_service.registry.clone());
     ntex::rt::spawn(async move {
         loop {
             let d2 = cron_db.clone();
@@ -79,7 +78,7 @@ async fn main() -> std::io::Result<()> {
         web::App::new()
             .state(db.clone())
             .state(encoder.clone())
-            .state(registry.clone())
+            .state(prom_service.get_registry())
             .wrap(prom_service.clone())
             .service(get_keys)
             .service(hello)

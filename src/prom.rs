@@ -11,11 +11,15 @@ struct Store {
 
 #[derive(Clone)]
 pub struct SayHi {
-    pub registry: Registry,
+    pub registry: Arc<Registry>,
     store: Arc<Store>,
 }
 
 impl SayHi {
+    pub fn get_registry(&self) -> Arc<Registry> {
+        self.registry.clone()
+    }
+
     pub fn create() -> Self {
         let registry: Registry = Registry::new();
         let http_request_total: IntCounterVec = IntCounterVec::new(
@@ -41,7 +45,7 @@ impl SayHi {
 
         // do the init here
         Self {
-            registry,
+            registry: Arc::from(registry),
             store: Arc::from(Store {
                 http_request_total,
                 http_request_duration,
