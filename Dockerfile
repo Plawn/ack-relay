@@ -13,7 +13,7 @@ RUN cargo build --release
 # use a plain alpine image, the alpine version needs to match the builder
 FROM alpine:3.19
 # if needed, install additional dependencies here
-# RUN apk add --no-cache libgcc
+RUN apk add --no-cache libgcc
 # copy the binary into the final image
 COPY --from=0 /app/target/release/ack-relay .
 # set the binary as entrypoint
