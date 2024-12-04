@@ -20,6 +20,12 @@ impl ReDBStore {
     }
 }
 
+// #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+// struct SomeKey {
+//     foo: String,
+//     bar: i32,
+// }
+
 impl Store for ReDBStore {
     fn store(&self, value: &WebHook) {
         let write_txn = self.db.begin_write().unwrap();

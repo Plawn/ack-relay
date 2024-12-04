@@ -2,13 +2,8 @@ use std::sync::Arc;
 
 use ack_relay::{ReDBStore, Store, WebHook, WebHookInner};
 
-// #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-// struct SomeKey {
-//     foo: String,
-//     bar: i32,
-// }
-
 use ntex::web::{self, types::Json};
+use prometheus::Registry;
 
 #[web::post("/")]
 async fn hello(
@@ -23,8 +18,6 @@ async fn hello(
 async fn get_keys(db: web::types::State<Arc<ReDBStore>>) -> impl web::Responder {
     Json(db.get_entries())
 }
-
-
 
 async fn handle_one_entry(_key: u64, value: WebHookInner) -> Option<()> {
     // Can we reuse the same client ?
@@ -41,13 +34,24 @@ async fn handle_one_entry(_key: u64, value: WebHookInner) -> Option<()> {
     resp.ok().filter(|e| e.status().as_u16() < 400).map(|_e| ())
 }
 
+#[web::get("/metrics")]
+pub async fn metrics(
+    registry: web::types::State<Arc<Registry>>,
+    encoder: web::types::State<Arc<prometheus::TextEncoder>>,
+) -> impl web::Responder {
+    let metrics = registry.gather();
+    encoder.encode_to_string(&metrics).unwrap()
+}
+
 #[ntex::main]
 async fn main() -> std::io::Result<()> {
     let db_name = "db.redb";
     let db = Arc::from(ReDBStore::open(db_name).expect("failed to open to store"));
     // Add basic cron
     let cron_db = db.clone();
-
+    let encoder = Arc::from(prometheus::TextEncoder::new());
+    let prom_service = ack_relay::prom::prepare_prom();
+    let registry = Arc::from(prom_service.registry.clone());
     ntex::rt::spawn(async move {
         loop {
             let d2 = cron_db.clone();
@@ -74,8 +78,12 @@ async fn main() -> std::io::Result<()> {
     web::HttpServer::new(move || {
         web::App::new()
             .state(db.clone())
+            .state(encoder.clone())
+            .state(registry.clone())
+            .wrap(prom_service.clone())
             .service(get_keys)
             .service(hello)
+            .service(metrics)
     })
     .bind(("127.0.0.1", 8080))?
     .run()
