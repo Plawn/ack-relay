@@ -10,6 +10,8 @@ serde = { version = "1", features = ["derive"], default-features = false }
 ntex = { version = "2.0", features = ["tokio"]}
 serde_json = { version = "1", default-features = false }
 prometheus = "0.13"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing = "0.1"
 
 [profile.release]
 # opt-level = "z"  # Optimize for size.

@@ -45,6 +45,16 @@ pub async fn metrics(
 
 #[ntex::main]
 async fn main() -> std::io::Result<()> {
+
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| format!("{}=debug", env!("CARGO_CRATE_NAME")).into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+
     let db_name = "db.redb";
     let db = Arc::from(ReDBStore::open(db_name).expect("failed to open to store"));
     // Add basic cron
