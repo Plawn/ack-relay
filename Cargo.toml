@@ -11,14 +11,15 @@ ntex = { version = "2.0", features = ["tokio"]}
 serde_json = { version = "1", default-features = false }
 prometheus = "0.13"
 
+[dependencies.reqwest]
+version = "0.12"
+default-features = false
+features = ["rustls-tls", "json"]
+
+
 [profile.release]
 # opt-level = "z"  # Optimize for size.
 lto = true
 codegen-units = 1
 strip = true      # Automatically strip symbols from the binary.
 
-
-[dependencies.reqwest]
-version = "0.12"
-default-features = false
-features = ["rustls-tls", "json"]

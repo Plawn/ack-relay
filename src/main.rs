@@ -45,7 +45,9 @@ pub async fn metrics(
 
 #[ntex::main]
 async fn main() -> std::io::Result<()> {
+    // should come from env
     let db_name = "db.redb";
+    let port = 8080;
     let db = Arc::from(ReDBStore::open(db_name).expect("failed to open to store"));
     // Add basic cron
     let cron_db = db.clone();
@@ -84,7 +86,7 @@ async fn main() -> std::io::Result<()> {
             .service(hello)
             .service(metrics)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("0.0.0.0", port))?
     .run()
     .await
 }
