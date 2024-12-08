@@ -45,7 +45,6 @@ pub async fn metrics(
 
 #[ntex::main]
 async fn main() -> std::io::Result<()> {
-    // should come from env
     let db_name = "db.redb";
     let port = 8080;
     let db = Arc::from(ReDBStore::open(db_name).expect("failed to open to store"));
