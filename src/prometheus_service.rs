@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use prometheus::{Histogram, HistogramOpts, IntCounterVec, Opts, Registry};
+use std::sync::Arc;
 
 use ntex::service::{Middleware, Service, ServiceCtx};
 use ntex::web;
@@ -10,17 +10,18 @@ struct Store {
 }
 
 #[derive(Clone)]
-pub struct SayHi {
-    pub registry: Arc<Registry>,
+pub struct PrometheusMiddleware {
+    registry: Arc<Registry>,
     store: Arc<Store>,
+    path: String,
 }
 
-impl SayHi {
+impl PrometheusMiddleware {
     pub fn get_registry(&self) -> Arc<Registry> {
         self.registry.clone()
     }
 
-    pub fn create() -> Self {
+    pub fn new(path: &str) -> Self {
         let registry: Registry = Registry::new();
         let http_request_total: IntCounterVec = IntCounterVec::new(
             Opts::new("http_requests_total", "Total number of HTTP requests").namespace("ntex"),
@@ -41,7 +42,9 @@ impl SayHi {
         registry
             .register(Box::new(http_request_total.clone()))
             .expect("HTTP_REQUESTS_TOTAL can be registered");
-        registry.register(Box::new(http_request_duration.clone())).expect("HTTP_REQUEST_DURATION can be registered");
+        registry
+            .register(Box::new(http_request_duration.clone()))
+            .expect("HTTP_REQUEST_DURATION can be registered");
 
         // do the init here
         Self {
@@ -50,27 +53,34 @@ impl SayHi {
                 http_request_total,
                 http_request_duration,
             }),
+            path: path.to_owned(),
         }
     }
 }
 
-impl<S> Middleware<S> for SayHi {
-    type Service = SayHiMiddleware<S>;
+impl<S> Middleware<S> for PrometheusMiddleware {
+    type Service = PrometheusMiddlewareService<S>;
 
     fn create(&self, service: S) -> Self::Service {
-        SayHiMiddleware {
+        PrometheusMiddlewareService {
             service,
             store: self.store.clone(),
+            encoder: prometheus::TextEncoder::new(),
+            registry: self.registry.clone(),
+            path: self.path.clone(),
         }
     }
 }
 
-pub struct SayHiMiddleware<S> {
+pub struct PrometheusMiddlewareService<S> {
     service: S,
     store: Arc<Store>,
+    encoder: prometheus::TextEncoder,
+    pub registry: Arc<Registry>,
+    path: String,
 }
 
-impl<S, Err> Service<web::WebRequest<Err>> for SayHiMiddleware<S>
+impl<S, Err> Service<web::WebRequest<Err>> for PrometheusMiddlewareService<S>
 where
     S: Service<web::WebRequest<Err>, Response = web::WebResponse, Error = web::Error>,
     Err: web::ErrorRenderer,
@@ -85,7 +95,6 @@ where
         req: web::WebRequest<Err>,
         ctx: ServiceCtx<'_, Self>,
     ) -> Result<Self::Response, Self::Error> {
-        // println!("Hi from start. You requested: {}", req.path());
         let start = ntex::time::now();
         let method = req.method().as_str().to_owned();
         let path = req.path().to_owned();
@@ -100,11 +109,17 @@ where
             .inc();
         let duration = start.elapsed().as_secs_f64();
         self.store.http_request_duration.observe(duration);
-        // println!("took -> {}", duration);
-        Ok(res)
-    }
-}
 
-pub fn prepare_prom() -> SayHi {
-    SayHi::create()
+        // intercpt if on metrics path 
+        Ok(res.map_body(|_old, old2| {
+            if method == "GET" && &path == &self.path {
+                let m = self.registry.gather();
+                let content = self.encoder.encode_to_string(&m).unwrap();
+                return ntex::http::body::ResponseBody::<ntex::http::body::Body>::Body(
+                    content.into(),
+                );
+            }
+            return old2;
+        }))
+    }
 }

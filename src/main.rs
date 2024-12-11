@@ -1,12 +1,11 @@
 use std::sync::Arc;
-
+use ack_relay::prometheus_service::PrometheusMiddleware;
 use ack_relay::{ReDBStore, Store, WebHook, WebHookInner};
 
 use ntex::web::{self, types::Json};
-use prometheus::Registry;
 
 #[web::post("/")]
-async fn hello(
+async fn new_ack(
     value: web::types::Json<WebHook>,
     db: web::types::State<Arc<ReDBStore>>,
 ) -> impl web::Responder {
@@ -15,7 +14,7 @@ async fn hello(
 }
 
 #[web::get("/")]
-async fn get_keys(db: web::types::State<Arc<ReDBStore>>) -> impl web::Responder {
+async fn get_current_ack(db: web::types::State<Arc<ReDBStore>>) -> impl web::Responder {
     Json(db.get_entries())
 }
 
@@ -34,15 +33,6 @@ async fn handle_one_entry(_key: u64, value: WebHookInner) -> Option<()> {
     resp.ok().filter(|e| e.status().as_u16() < 400).map(|_e| ())
 }
 
-#[web::get("/metrics")]
-pub async fn metrics(
-    registry: web::types::State<Arc<Registry>>,
-    encoder: web::types::State<Arc<prometheus::TextEncoder>>,
-) -> impl web::Responder {
-    let metrics = registry.gather();
-    encoder.encode_to_string(&metrics).unwrap()
-}
-
 #[ntex::main]
 async fn main() -> std::io::Result<()> {
     let db_name = "db.redb";
@@ -50,8 +40,7 @@ async fn main() -> std::io::Result<()> {
     let db = Arc::from(ReDBStore::open(db_name).expect("failed to open to store"));
     // Add basic cron
     let cron_db = db.clone();
-    let encoder = Arc::from(prometheus::TextEncoder::new());
-    let prom_service = ack_relay::prom::prepare_prom();
+
     ntex::rt::spawn(async move {
         loop {
             let d2 = cron_db.clone();
@@ -75,15 +64,14 @@ async fn main() -> std::io::Result<()> {
             ntex::time::sleep(ntex::time::Seconds(10)).await;
         }
     });
+
     web::HttpServer::new(move || {
         web::App::new()
             .state(db.clone())
-            .state(encoder.clone())
-            .state(prom_service.get_registry())
-            .wrap(prom_service.clone())
-            .service(get_keys)
-            .service(hello)
-            .service(metrics)
+            // will intercept the /metrics query and respond with the prometheus metrics
+            .wrap(PrometheusMiddleware::new("/metrics"))
+            .service(get_current_ack)
+            .service(new_ack)
     })
     .bind(("0.0.0.0", port))?
     .run()
