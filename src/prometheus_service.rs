@@ -1,3 +1,4 @@
+use ntex::http::body::ResponseBody;
 use prometheus::{Histogram, HistogramOpts, IntCounterVec, Opts, Registry};
 use reqwest::StatusCode;
 use std::rc::Rc;
@@ -108,11 +109,7 @@ where
             .with_label_values(&[
                 &method,
                 &path,
-                if is_metrics_endpoint {
-                    "200"
-                } else {
-                    &status
-                },
+                if is_metrics_endpoint { "200" } else { &status },
             ])
             .inc();
         let duration = start.elapsed().as_secs_f64();
@@ -120,11 +117,10 @@ where
         if is_metrics_endpoint {
             return Ok(res.map_body(|head, _| {
                 let m = self.registry.gather();
+                // remove unwrap here
                 let content = self.encoder.encode_to_string(&m).unwrap();
                 head.status = StatusCode::OK;
-                ntex::http::body::ResponseBody::<ntex::http::body::Body>::Body(
-                    content.into(),
-                )
+                ResponseBody::Body(content.into())
             }));
         }
         Ok(res)
