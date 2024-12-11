@@ -1,4 +1,5 @@
 use prometheus::{Histogram, HistogramOpts, IntCounterVec, Opts, Registry};
+use reqwest::StatusCode;
 use std::sync::Arc;
 
 use ntex::service::{Middleware, Service, ServiceCtx};
@@ -99,27 +100,33 @@ where
         let method = req.method().as_str().to_owned();
         let path = req.path().to_owned();
         let res = ctx.call(&self.service, req).await?;
+
+        let is_metrics_endpoint = method == "GET" && &path == &self.path;
+        let status = res.status().as_str().to_owned();
         self.store
             .http_request_total
             .with_label_values(&[
                 &method,
                 &path,
-                res.status().as_str(), // You'd update this with actual response status
+                if is_metrics_endpoint {
+                    "200"
+                } else {
+                    &status
+                },
             ])
             .inc();
         let duration = start.elapsed().as_secs_f64();
         self.store.http_request_duration.observe(duration);
-
-        // intercpt if on metrics path 
-        Ok(res.map_body(|_old, old2| {
-            if method == "GET" && &path == &self.path {
+        if is_metrics_endpoint {
+            return Ok(res.map_body(|head, _| {
                 let m = self.registry.gather();
                 let content = self.encoder.encode_to_string(&m).unwrap();
+                head.status = StatusCode::OK;
                 return ntex::http::body::ResponseBody::<ntex::http::body::Body>::Body(
                     content.into(),
                 );
-            }
-            return old2;
-        }))
+            }));
+        }
+        Ok(res)
     }
 }
