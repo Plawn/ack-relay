@@ -1,6 +1,6 @@
 use prometheus::{Histogram, HistogramOpts, IntCounterVec, Opts, Registry};
 use reqwest::StatusCode;
-use std::sync::Arc;
+use std::rc::Rc;
 
 use ntex::service::{Middleware, Service, ServiceCtx};
 use ntex::web;
@@ -12,13 +12,13 @@ struct Store {
 
 #[derive(Clone)]
 pub struct PrometheusMiddleware {
-    registry: Arc<Registry>,
-    store: Arc<Store>,
+    registry: Rc<Registry>,
+    store: Rc<Store>,
     path: String,
 }
 
 impl PrometheusMiddleware {
-    pub fn get_registry(&self) -> Arc<Registry> {
+    pub fn get_registry(&self) -> Rc<Registry> {
         self.registry.clone()
     }
 
@@ -49,8 +49,8 @@ impl PrometheusMiddleware {
 
         // do the init here
         Self {
-            registry: Arc::from(registry),
-            store: Arc::from(Store {
+            registry: Rc::from(registry),
+            store: Rc::from(Store {
                 http_request_total,
                 http_request_duration,
             }),
@@ -75,9 +75,9 @@ impl<S> Middleware<S> for PrometheusMiddleware {
 
 pub struct PrometheusMiddlewareService<S> {
     service: S,
-    store: Arc<Store>,
+    store: Rc<Store>,
     encoder: prometheus::TextEncoder,
-    pub registry: Arc<Registry>,
+    registry: Rc<Registry>,
     path: String,
 }
 
