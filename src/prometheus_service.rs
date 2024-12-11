@@ -101,7 +101,7 @@ where
         let path = req.path().to_owned();
         let res = ctx.call(&self.service, req).await?;
 
-        let is_metrics_endpoint = method == "GET" && &path == &self.path;
+        let is_metrics_endpoint = method == "GET" && path == self.path;
         let status = res.status().as_str().to_owned();
         self.store
             .http_request_total
@@ -122,9 +122,9 @@ where
                 let m = self.registry.gather();
                 let content = self.encoder.encode_to_string(&m).unwrap();
                 head.status = StatusCode::OK;
-                return ntex::http::body::ResponseBody::<ntex::http::body::Body>::Body(
+                ntex::http::body::ResponseBody::<ntex::http::body::Body>::Body(
                     content.into(),
-                );
+                )
             }));
         }
         Ok(res)
