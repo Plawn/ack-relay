@@ -10,7 +10,7 @@ dependencies = [
  "env_logger",
  "log",
  "ntex",
- "prometheus",
+ "ntex-prometheus",
  "redb",
  "reqwest",
  "serde",
@@ -944,6 +944,16 @@ dependencies = [
  "ntex-tokio",
  "ntex-util",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "ntex-prometheus"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42e922541a1fb59fb519d3294f33d8ac06ba38974996a154925a02edef5e1976"
+dependencies = [
+ "ntex",
+ "prometheus",
 ]
 
 [[package]]

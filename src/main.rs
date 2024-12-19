@@ -1,7 +1,7 @@
 use log::{debug, warn};
-use ack_relay::prometheus_service::PrometheusMiddleware;
 use ack_relay::{ReDBStore, Store, WebHook, WebHookInner};
 use env_logger::Env;
+use ntex_prometheus::PrometheusMiddleware;
 use std::sync::Arc;
 
 use ntex::web::{self, types::Json};
